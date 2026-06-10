@@ -1,10 +1,10 @@
-
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { PrismaModule }        from './prisma/prisma.module';
+import { CloudinaryModule }    from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -12,6 +12,7 @@ import { PrismaModule }        from './prisma/prisma.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    CloudinaryModule,
   ],
 })
 export class AppModule {}
