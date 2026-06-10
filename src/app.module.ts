@@ -8,6 +8,8 @@ import { CloudinaryModule }    from './cloudinary/cloudinary.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { AdmissionsModule } from './admissions/admissions.module';
+import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,7 +20,9 @@ import { AdmissionsModule } from './admissions/admissions.module';
     CloudinaryModule,
     AuthModule,
     UsersModule,
-    AdmissionsModule
+    AdmissionsModule,
+    AuditModule,
+    NotificationsModule
   ],
 })
 export class AppModule {}
