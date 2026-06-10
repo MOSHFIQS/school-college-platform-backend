@@ -26,7 +26,7 @@ import { ClassesModule } from './classes/classes.module';
     AuditModule,
     NotificationsModule,
     AttendanceModule,
-    ClassesModule
+    ClassesModule,
   ],
 })
 export class AppModule {}
