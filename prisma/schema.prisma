@@ -1,0 +1,706 @@
+// ════════════════════════════════════════════════════════════════
+// Bangladesh School / College Management System — Prisma Schema
+// Stack : NestJS · Prisma ORM · PostgreSQL 16 · Next.js Frontend
+// ════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Shift {
+  MORNING
+  DAY
+  EVENING
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HOLIDAY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+}
+
+enum ExamType {
+  MONTHLY
+  HALF_YEARLY
+  ANNUAL
+  TEST
+}
+
+enum MarkStatus {
+  DRAFT       // teacher entered, not submitted yet
+  SUBMITTED   // submitted for admin review
+  PUBLISHED   // visible to students
+}
+
+enum NoticeCategory {
+  ACADEMIC
+  EXAM
+  HOLIDAY
+  ADMISSION
+  GENERAL
+}
+
+enum AdmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CertificateType {
+  TESTIMONIAL
+  CHARACTER
+  MERIT
+  PARTICIPATION
+  CUSTOM
+}
+
+enum CertificateStatus {
+  DRAFT
+  APPROVED
+  PUBLISHED
+  REVOKED
+}
+
+// ─────────────────────────────────────────
+// AUTH & USERS
+// ─────────────────────────────────────────
+
+// One row per person. Profile details live in Student / Teacher.
+model User {
+  id                 String    @id @default(cuid())
+  email              String?   @unique
+  phone              String?   @unique
+  password           String    // bcrypt hash
+  role               Role
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true) // blocks portal until password is reset
+  lastLoginAt        DateTime?
+  createdById        String?   // admin/super-admin who created this account
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  student       Student?
+  teacher       Teacher?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────
+// INSTITUTION SETTINGS  (Super Admin only)
+// ─────────────────────────────────────────
+
+// Effectively a single-row config table for the public website.
+model InstitutionSettings {
+  id                String   @id @default(cuid())
+  name              String
+  nameBn            String?
+  address           String?
+  phone             String?
+  email             String?
+  website           String?
+  logoUrl           String?
+  eiin              String?  // Bangladesh Education Institution Identification Number
+  principalName     String?
+  principalMessage  String?
+  principalPhotoUrl String?
+  established       Int?     // founding year
+  updatedAt         DateTime @updatedAt
+
+  @@map("institution_settings")
+}
+
+// ─────────────────────────────────────────
+// ACADEMIC STRUCTURE
+// ─────────────────────────────────────────
+
+model AcademicSession {
+  id        String   @id @default(cuid())
+  name      String   // "2025-2026"
+  year      Int      @unique
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classes         Class[]
+  exams           Exam[]
+  studentSessions StudentSession[]
+  admissions      Admission[]
+
+  @@map("academic_sessions")
+}
+
+// "Class 6", "Class 10", "HSC 1st Year", etc.
+model Class {
+  id        String          @id @default(cuid())
+  name      String          // "Class 6", "HSC 1st Year"
+  level     Int             // for ordering and promotion logic
+  shift     Shift           @default(MORNING)
+  sessionId String
+  session   AcademicSession @relation(fields: [sessionId], references: [id])
+  createdAt DateTime        @default(now())
+
+  sections       Section[]
+  subjects       Subject[]
+  teacherClasses TeacherClass[]
+  admissions     Admission[]
+
+  @@unique([level, shift, sessionId])
+  @@map("classes")
+}
+
+// "A", "B", "C" at secondary level.
+// At higher secondary, groups like "Science" / "Humanities" are also sections —
+// keeps the schema flat without needing a separate Group table.
+model Section {
+  id             String   @id @default(cuid())
+  name           String   // "A", "B", "Science", "Humanities"
+  capacity       Int      @default(40)
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  classTeacherId String?  @unique
+  classTeacher   Teacher? @relation("ClassTeacher", fields: [classTeacherId], references: [id])
+  createdAt      DateTime @default(now())
+
+  studentSessions StudentSession[]
+  attendances     Attendance[]
+  routines        Routine[]
+  teacherSections TeacherSection[]
+
+  @@unique([name, classId])
+  @@map("sections")
+}
+
+// Subject belongs to a class; assigned to teachers via TeacherSubject.
+model Subject {
+  id        String   @id @default(cuid())
+  name      String   // "Mathematics", "Bangla"
+  code      String   // "MATH", "BNG"
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id])
+  createdAt DateTime @default(now())
+
+  teacherSubjects TeacherSubject[]
+  results         Result[]
+  routines        Routine[]
+
+  @@unique([code, classId])
+  @@map("subjects")
+}
+
+// ─────────────────────────────────────────
+// TEACHER
+// ─────────────────────────────────────────
+
+model Teacher {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId    String    @unique
+  fullName      String
+  fullNameBn    String?
+  designation   String    // "Assistant Teacher", "Lecturer"
+  qualification String?
+  photoUrl      String?
+  gender        Gender?
+  dateOfBirth   DateTime? @db.Date
+  phone         String?
+  joiningDate   DateTime  @db.Date
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Class teacher for a section (one-to-one via Section.classTeacherId)
+  classSection    Section?         @relation("ClassTeacher")
+  // Many-to-many academic assignments
+  teacherClasses  TeacherClass[]
+  teacherSections TeacherSection[]
+  teacherSubjects TeacherSubject[]
+
+  attendancesTaken  Attendance[]
+  results           Result[]
+  leaveApplications LeaveApplication[]
+  notices           Notice[]
+
+  @@map("teachers")
+}
+
+// Teacher ↔ Class  (a teacher can be assigned to multiple classes)
+model TeacherClass {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  classId   String
+  class     Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, classId])
+  @@map("teacher_classes")
+}
+
+// Teacher ↔ Section
+model TeacherSection {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, sectionId])
+  @@map("teacher_sections")
+}
+
+// Teacher ↔ Subject
+model TeacherSubject {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId])
+  @@map("teacher_subjects")
+}
+
+// ─────────────────────────────────────────
+// STUDENT
+// ─────────────────────────────────────────
+
+// Core identity — persists across all academic sessions.
+// Created only after an Admission application is approved.
+model Student {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId      String   @unique // readable ID e.g. "STU-2025-0001"
+  registrationNo String?  @unique // govt registration number
+  fullName       String
+  fullNameBn     String?
+  dateOfBirth    DateTime @db.Date
+  gender         Gender
+  bloodGroup     String?
+  photoUrl       String?
+  phone          String?
+  birthCertNo    String?
+  nidNumber      String?  // for adult students
+
+  // Guardian
+  fatherName       String
+  fatherPhone      String?
+  fatherOccupation String?
+  motherName       String
+  motherPhone      String?
+  guardianName     String?
+  guardianPhone    String?
+  guardianRelation String?
+
+  // Address
+  village  String?
+  upazila  String?
+  district String?
+  division String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One enrollment record per session
+  sessions          StudentSession[]
+  attendances       Attendance[]
+  results           Result[]
+  leaveApplications LeaveApplication[]
+  certificates      Certificate[]
+  // The admission that generated this account (one-to-one)
+  admission         Admission?
+
+  @@map("students")
+}
+
+// One enrollment record per student per academic session.
+// Roll number, class, and section can change every year.
+// Promotion = new StudentSession row for the new session.
+model StudentSession {
+  id            String          @id @default(cuid())
+  studentId     String
+  student       Student         @relation(fields: [studentId], references: [id])
+  sessionId     String
+  session       AcademicSession @relation(fields: [sessionId], references: [id])
+  classId       String          // denormalised for quick filtering
+  sectionId     String
+  section       Section         @relation(fields: [sectionId], references: [id])
+  rollNumber    String          // roll can change every session
+  admissionDate DateTime        @db.Date
+  isPromoted    Boolean         @default(false)
+  promotedAt    DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@unique([studentId, sessionId])
+  @@index([sectionId, sessionId])
+  @@map("student_sessions")
+}
+
+// ─────────────────────────────────────────
+// ADMISSION (public — no login required)
+// ─────────────────────────────────────────
+
+// Any visitor can submit. No Student/User account is created at this stage.
+// Admin reviews and approves. Only after approval does the system create
+// a Student + User account and link it here via studentId.
+model Admission {
+  id              String          @id @default(cuid())
+  applicationNo   String          @unique // human-readable e.g. "ADM-2025-0042"
+  sessionId       String
+  session         AcademicSession @relation(fields: [sessionId], references: [id])
+  classId         String
+  class           Class           @relation(fields: [classId], references: [id])
+
+  // Applicant personal info
+  applicantName   String
+  applicantNameBn String?
+  dateOfBirth     DateTime        @db.Date
+  gender          Gender
+  bloodGroup      String?
+
+  // Guardian info
+  fatherName      String
+  fatherPhone     String?
+  motherName      String
+  motherPhone     String?
+  guardianPhone   String          // primary contact
+  guardianEmail   String?
+
+  // Academic background
+  previousSchool  String?
+  previousClass   String?
+  previousGpa     String?
+
+  // Uploaded documents (file URLs / paths)
+  photoUrl        String?
+  birthCertUrl    String?
+  testimonialUrl  String?         // previous result / transfer certificate
+
+  // Address
+  village         String?
+  upazila         String?
+  district        String?
+  division        String?
+
+  // Workflow
+  status          AdmissionStatus @default(PENDING)
+  reviewNote      String?
+  reviewedBy      String?         // admin/super-admin user id
+  reviewedAt      DateTime?
+
+  // Linked after approval — null until then
+  studentId       String?         @unique
+  student         Student?        @relation(fields: [studentId], references: [id])
+
+  submittedAt     DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([status, sessionId])
+  @@index([classId, sessionId])
+  @@map("admissions")
+}
+
+// ─────────────────────────────────────────
+// ATTENDANCE
+// ─────────────────────────────────────────
+
+// One record per student per day.
+model Attendance {
+  id        String           @id @default(cuid())
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id])
+  sectionId String
+  section   Section          @relation(fields: [sectionId], references: [id])
+  date      DateTime         @db.Date
+  status    AttendanceStatus
+  note      String?
+  takenById String
+  teacher   Teacher          @relation(fields: [takenById], references: [id])
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([studentId, date])
+  @@index([sectionId, date])
+  @@map("attendance")
+}
+
+model LeaveApplication {
+  id            String      @id @default(cuid())
+  applicantType String      // "student" | "teacher"
+  studentId     String?
+  student       Student?    @relation(fields: [studentId], references: [id])
+  teacherId     String?
+  teacher       Teacher?    @relation(fields: [teacherId], references: [id])
+  leaveType     LeaveType
+  fromDate      DateTime    @db.Date
+  toDate        DateTime    @db.Date
+  reason        String
+  status        LeaveStatus @default(PENDING)
+  reviewedBy    String?     // admin user id
+  reviewNote    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@map("leave_applications")
+}
+
+// ─────────────────────────────────────────
+// EXAMS & RESULTS
+// ─────────────────────────────────────────
+
+model Exam {
+  id          String          @id @default(cuid())
+  name        String          // "Half-Yearly Exam 2025"
+  type        ExamType
+  sessionId   String
+  session     AcademicSession @relation(fields: [sessionId], references: [id])
+  classId     String?         // null = school-wide; set = class-specific
+  startDate   DateTime        @db.Date
+  endDate     DateTime        @db.Date
+  isPublished Boolean         @default(false)
+  publishedAt DateTime?
+  createdBy   String          // user id
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  results Result[]
+
+  @@map("exams")
+}
+
+// Merged mark-entry + result.
+// DRAFT → teacher entered; SUBMITTED → pending admin review; PUBLISHED → visible to student.
+model Result {
+  id            String     @id @default(cuid())
+  studentId     String
+  student       Student    @relation(fields: [studentId], references: [id])
+  examId        String
+  exam          Exam       @relation(fields: [examId], references: [id])
+  subjectId     String
+  subject       Subject    @relation(fields: [subjectId], references: [id])
+  teacherId     String
+  teacher       Teacher    @relation(fields: [teacherId], references: [id])
+  fullMarks     Float      @default(100)
+  marksObtained Float
+  grade         String?    // computed: A+, A, A-, B, C, D, F
+  gradePoint    Float?     // computed: 5.0, 4.0 …
+  isPassed      Boolean?
+  status        MarkStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([studentId, examId, subjectId])
+  @@index([studentId, examId])
+  @@map("results")
+}
+
+// ─────────────────────────────────────────
+// ROUTINE / TIMETABLE
+// ─────────────────────────────────────────
+
+model Routine {
+  id        String  @id @default(cuid())
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id])
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  dayOfWeek Int     // 0 = Sunday … 5 = Friday (BD school week)
+  period    Int     // 1–8
+  startTime String  // "08:00"
+  endTime   String  // "08:45"
+  roomNo    String?
+
+  @@unique([sectionId, dayOfWeek, period])
+  @@map("routines")
+}
+
+// ─────────────────────────────────────────
+// NOTICES
+// ─────────────────────────────────────────
+
+model Notice {
+  id            String         @id @default(cuid())
+  title         String
+  body          String
+  category      NoticeCategory @default(GENERAL)
+  attachmentUrl String?
+  publishedById String?
+  publishedBy   Teacher?       @relation(fields: [publishedById], references: [id])
+  isPublic      Boolean        @default(true) // true = visible on public website
+  expiresAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([category, createdAt])
+  @@map("notices")
+}
+
+// ─────────────────────────────────────────
+// CERTIFICATES
+// ─────────────────────────────────────────
+
+// Only Admin / Super Admin can create, approve, publish, revoke.
+// Students can only view and download published certificates.
+// Teachers have no access.
+model Certificate {
+  id         String            @id @default(cuid())
+  studentId  String
+  student    Student           @relation(fields: [studentId], references: [id])
+  type       CertificateType
+  title      String            // "Certificate of Merit"
+  body       String?           // rendered template / rich text
+  pdfUrl     String?           // path to generated PDF
+  status     CertificateStatus @default(DRAFT)
+  issuedDate DateTime?         @db.Date
+  approvedBy String?           // admin user id
+  approvedAt DateTime?
+  revokedAt  DateTime?
+  revokeNote String?
+  createdBy  String            // admin user id
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([studentId, status])
+  @@map("certificates")
+}
+
+// ─────────────────────────────────────────
+// PUBLIC WEBSITE CONTENT
+// ─────────────────────────────────────────
+
+model GalleryAlbum {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  eventDate   DateTime? @db.Date
+  coverUrl    String?
+  createdBy   String    // user id
+  createdAt   DateTime  @default(now())
+
+  photos GalleryPhoto[]
+
+  @@map("gallery_albums")
+}
+
+model GalleryPhoto {
+  id        String       @id @default(cuid())
+  albumId   String
+  album     GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  sortOrder Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  @@map("gallery_photos")
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  eventDate   DateTime
+  endDate     DateTime?
+  venue       String?
+  posterUrl   String?
+  isPublic    Boolean   @default(true)
+  createdBy   String    // user id
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("events")
+}
+
+model ContactMessage {
+  id        String    @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String
+  message   String
+  isRead    Boolean   @default(false)
+  repliedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("contact_messages")
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String    // result | attendance | notice | certificate | admission | general
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  link      String?   // deep-link e.g. "/student/results/exam-id"
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────
+// AUDIT LOGS  (Super Admin view only)
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // CREATE_STUDENT | APPROVE_ADMISSION | PUBLISH_RESULT | REVOKE_CERT …
+  entityType String   // "Student" | "Admission" | "Result" | "Certificate" …
+  entityId   String?
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
