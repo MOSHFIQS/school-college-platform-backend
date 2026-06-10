@@ -1,98 +1,212 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🏫 BD School/College Management Portal — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+**NestJS · Prisma ORM · PostgreSQL · JWT + Cookie Auth · Full Swagger Docs**
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## 🚀 Quick Start
 
 ```bash
-$ pnpm install
+# 1. Install dependencies
+cd backend
+npm install
+
+# 2. Setup environment
+cp .env.example .env
+# Edit .env — set DATABASE_URL and JWT secrets at minimum
+
+# 3. Start PostgreSQL (Docker)
+docker run -d --name school_pg \
+  -e POSTGRES_DB=school_db \
+  -e POSTGRES_USER=school_user \
+  -e POSTGRES_PASSWORD=school_pass \
+  -p 5432:5432 postgres:16-alpine
+
+# 4. Generate Prisma client + migrate
+npm run db:generate
+npm run db:migrate
+
+# 5. Seed initial data
+npm run db:seed
+
+# 6. Start dev server
+npm run start:dev
 ```
 
-## Compile and run the project
+**Swagger UI:** http://localhost:3000/api/docs
+**API Base:** http://localhost:3000/api/v1
+
+---
+
+## 🔑 Default Credentials (after seed)
+
+| Role | Login | Password | Notes |
+|------|-------|----------|-------|
+| Super Admin | `superadmin@school.edu.bd` | `SuperAdmin@123` | Full access |
+| Admin | `admin@school.edu.bd` | `Admin@123` | Academic management |
+| Teacher | `teacher@school.edu.bd` OR `EMP-001` | `Teacher@123` | Class 9A math teacher |
+| Student | `student@school.edu.bd` OR `STU-2025-0001` | `Student@123` | Class 9A, Roll 2025901 |
+
+---
+
+## 🔐 Authentication Flow
+
+### Step 1 — Login
+```http
+POST /api/v1/auth/login
+{ "username": "admin@school.edu.bd", "password": "Admin@123" }
+```
+Returns `accessToken` (15 min) + sets `refreshToken` httpOnly cookie (7 days).
+
+### Step 2 — Authorize in Swagger
+Click **Authorize 🔒** → enter `Bearer <accessToken>` under **bearerAuth**.
+
+### First-Login Password Change
+When `mustChangePassword: true` in login response:
+```http
+POST /api/v1/auth/change-password
+Authorization: Bearer <accessToken>
+{ "currentPassword": "TempPass@123", "newPassword": "MyNewPass@456" }
+```
+After this, full portal access is granted and new tokens are returned.
+
+### Step 3 — Refresh Token
+The `refreshToken` cookie is sent automatically by browser. Call:
+```http
+POST /api/v1/auth/refresh
+# Cookie: refreshToken=<value> (sent automatically)
+```
+
+---
+
+## 📁 Project Structure
+
+```
+backend/
+├── src/
+│   ├── auth/               # JWT auth, mustChangePassword guard, OTP
+│   ├── institution/        # School settings, principal message
+│   ├── users/              # User accounts (super admin creates admin)
+│   ├── classes/            # Sessions, classes, sections, subjects
+│   ├── teachers/           # Teacher CRUD + class/section/subject assignment
+│   ├── admissions/         # Public form → admin review → student creation
+│   ├── students/           # Student management + promotion (StudentSession)
+│   ├── attendance/         # Daily attendance, monthly report, calendar
+│   ├── results/            # DRAFT → SUBMITTED → PUBLISHED marks workflow
+│   ├── leave/              # Leave applications for students & teachers
+│   ├── routine/            # Class timetable
+│   ├── notices/            # Notice board (teacher publishes, admin manages)
+│   ├── certificates/       # DRAFT → APPROVED → PUBLISHED → REVOKED
+│   ├── gallery/            # Photo albums
+│   ├── events/             # School events
+│   ├── contact/            # Public contact form + admin inbox
+│   ├── notifications/      # In-app notifications + Email/SMS
+│   ├── audit/              # Audit logs (super admin only)
+│   ├── prisma/             # PrismaService (global)
+│   ├── common/             # Filters, interceptors, GPA utility
+│   └── config/             # Typed configuration
+├── prisma/
+│   ├── schema.prisma       # Database schema
+│   └── seed.ts             # Initial data seeder
+├── .env.example
+├── Dockerfile
+└── package.json
+```
+
+---
+
+## 🗄️ Key Workflows
+
+### Admission → Student Account
+```
+Visitor submits form (POST /admissions)
+        ↓ applicationNo returned
+Admin reviews (GET /admissions)
+        ↓
+Admin approves (PUT /admissions/:id/approve)
+        ↓
+Student account created automatically
+tempPassword returned (give to student)
+        ↓
+Student logs in → mustChangePassword = true
+        ↓
+Student changes password (POST /auth/change-password)
+        ↓ Full portal access
+```
+
+### Mark Entry → Result Publication
+```
+Teacher enters marks (POST /results/marks)     → status: DRAFT
+        ↓
+Teacher submits (POST /results/marks/submit)   → status: SUBMITTED
+        ↓
+Admin publishes (PUT /results/marks/publish)   → status: PUBLISHED
+        ↓
+Students can view (GET /results/my-results)
+Public search  (GET /results/search?roll=&examId=)
+```
+
+### Certificate Lifecycle
+```
+Admin creates  → DRAFT
+Admin approves → APPROVED
+Admin publishes→ PUBLISHED  ← student can view
+Admin revokes  → REVOKED    ← hidden from student
+```
+
+---
+
+## 📊 Bangladesh Grading System (JSC/SSC/HSC)
+
+| Marks | Grade | GPA |
+|-------|-------|-----|
+| 80–100 | A+ | 5.00 |
+| 70–79  | A  | 4.00 |
+| 60–69  | A- | 3.50 |
+| 50–59  | B  | 3.00 |
+| 40–49  | C  | 2.00 |
+| 33–39  | D  | 1.00 |
+| 0–32   | F  | 0.00 |
+
+Auto-calculated on mark entry. See `GET /results/grade-scale`.
+
+---
+
+## 🏷️ Role Permissions Summary
+
+| Action | SUPER_ADMIN | ADMIN | TEACHER | STUDENT |
+|--------|:-----------:|:-----:|:-------:|:-------:|
+| Create Admin | ✅ | ❌ | ❌ | ❌ |
+| Manage Teachers | ✅ | ✅ | ❌ | ❌ |
+| Approve Admissions | ✅ | ✅ | ❌ | ❌ |
+| Take Attendance | ✅ | ✅ | ✅ | ❌ |
+| Enter Marks | ✅ | ✅ | ✅ | ❌ |
+| Publish Results | ✅ | ✅ | ❌ | ❌ |
+| View Own Results | ✅ | ✅ | ✅ | ✅ |
+| Create Certificates | ✅ | ✅ | ❌ | ❌ |
+| View Audit Logs | ✅ | ❌ | ❌ | ❌ |
+
+---
+
+## 🐳 Docker Deployment
 
 ```bash
-# development
-$ pnpm run start
+# Start everything
+docker-compose up -d --build
 
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+# Run migrations + seed
+docker-compose exec backend npx prisma migrate deploy
+docker-compose exec backend npm run db:seed
 ```
 
-## Run tests
+---
+
+## 🛠️ Useful Commands
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+npm run start:dev      # Development with hot-reload
+npm run db:studio      # Prisma Studio GUI (http://localhost:5555)
+npm run db:seed        # Re-seed initial data
+npm run db:reset       # Reset DB + re-seed (⚠️ deletes all data)
+npm run build          # Production build
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

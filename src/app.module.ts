@@ -4,24 +4,25 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 import { PrismaModule }        from './prisma/prisma.module';
-import { CloudinaryModule }    from './cloudinary/cloudinary.module';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { AdmissionsModule } from './admissions/admissions.module';
-import { AuditModule } from './audit/audit.module';
+import { AuthModule }          from './auth/auth.module';
+import { InstitutionModule }   from './institution/institution.module';
+import { UsersModule }         from './users/users.module';
+import { ClassesModule }       from './classes/classes.module';
+import { TeachersModule }      from './teachers/teachers.module';
+import { AdmissionsModule }    from './admissions/admissions.module';
+import { StudentsModule }      from './students/students.module';
+import { AttendanceModule }    from './attendance/attendance.module';
+import { ResultsModule }       from './results/results.module';
+import { LeaveModule }         from './leave/leave.module';
+import { RoutineModule }       from './routine/routine.module';
+import { NoticesModule }       from './notices/notices.module';
+import { CertificatesModule }  from './certificates/certificates.module';
+import { GalleryModule }       from './gallery/gallery.module';
+import { EventsModule }        from './events/events.module';
+import { ContactModule }       from './contact/contact.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { AttendanceModule } from './attendance/attendance.module';
-import { ClassesModule } from './classes/classes.module';
-import { ContactModule } from './contact/contact.module';
-import { EventsModule } from './events/events.module';
-import { LeaveModule } from './leave/leave.module';
-import { NoticesModule } from './notices/notices.module';
-import { InstitutionModule } from './institution/institution.module';
-import { GalleryModule } from './gallery/gallery.module';
-import { ResultsModule } from './results/results.module';
-import { RoutineModule } from './routine/routine.module';
-import { StudentsModule } from './students/students.module';
-import { TeachersModule } from './teachers/teachers.module';
+import { AuditModule }         from './audit/audit.module';
+import { CloudinaryModule }    from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -29,24 +30,25 @@ import { TeachersModule } from './teachers/teachers.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
-    CloudinaryModule,
     AuthModule,
-    UsersModule,
-    AdmissionsModule,
-    AuditModule,
-    NotificationsModule,
-    AttendanceModule,
-    ClassesModule,
-    ContactModule,
-    EventsModule,
-    GalleryModule,
     InstitutionModule,
-    LeaveModule,
-    NoticesModule,
-    ResultsModule,
-    RoutineModule,
+    UsersModule,
+    ClassesModule,
+    TeachersModule,
+    AdmissionsModule,
     StudentsModule,
-    TeachersModule
+    AttendanceModule,
+    ResultsModule,
+    LeaveModule,
+    RoutineModule,
+    NoticesModule,
+    CertificatesModule,
+    GalleryModule,
+    EventsModule,
+    ContactModule,
+    NotificationsModule,
+    AuditModule,
+    CloudinaryModule,
   ],
 })
 export class AppModule {}
