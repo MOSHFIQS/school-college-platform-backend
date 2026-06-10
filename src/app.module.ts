@@ -14,6 +14,14 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { ClassesModule } from './classes/classes.module';
 import { ContactModule } from './contact/contact.module';
 import { EventsModule } from './events/events.module';
+import { LeaveModule } from './leave/leave.module';
+import { NoticesModule } from './notices/notices.module';
+import { InstitutionModule } from './institution/institution.module';
+import { GalleryModule } from './gallery/gallery.module';
+import { ResultsModule } from './results/results.module';
+import { RoutineModule } from './routine/routine.module';
+import { StudentsModule } from './students/students.module';
+import { TeachersModule } from './teachers/teachers.module';
 
 @Module({
   imports: [
@@ -30,7 +38,15 @@ import { EventsModule } from './events/events.module';
     AttendanceModule,
     ClassesModule,
     ContactModule,
-    EventsModule
+    EventsModule,
+    GalleryModule,
+    InstitutionModule,
+    LeaveModule,
+    NoticesModule,
+    ResultsModule,
+    RoutineModule,
+    StudentsModule,
+    TeachersModule
   ],
 })
 export class AppModule {}
