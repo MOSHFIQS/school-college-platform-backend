@@ -6,6 +6,7 @@ import configuration from './config/configuration';
 import { PrismaModule }        from './prisma/prisma.module';
 import { CloudinaryModule }    from './cloudinary/cloudinary.module';
 import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { AuthModule } from './auth/auth.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     CloudinaryModule,
-    AuthModule
+    AuthModule,
+    UsersModule
   ],
 })
 export class AppModule {}
