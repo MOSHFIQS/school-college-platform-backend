@@ -23,6 +23,7 @@ import { ContactModule }       from './contact/contact.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule }         from './audit/audit.module';
 import { CloudinaryModule }    from './cloudinary/cloudinary.module';
+import { HealthModule }        from './health/health.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { CloudinaryModule }    from './cloudinary/cloudinary.module';
     NotificationsModule,
     AuditModule,
     CloudinaryModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
