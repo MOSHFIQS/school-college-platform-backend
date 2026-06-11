@@ -1,6 +1,9 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiBody, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { CertificatesService } from './certificates.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { JwtAuthGuard, RolesGuard, MustChangePasswordGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -11,7 +14,10 @@ import { CertificateStatus } from '@prisma/client';
 @UseGuards(JwtAuthGuard, MustChangePasswordGuard, RolesGuard)
 @ApiBearerAuth('bearerAuth')
 export class CertificatesController {
-  constructor(private readonly svc: CertificatesService) {}
+  constructor(
+    private readonly svc: CertificatesService,
+    private readonly cloudinary: CloudinaryService,
+  ) {}
 
   @Get('my-certificates')
   @Roles('STUDENT')
@@ -43,9 +49,22 @@ export class CertificatesController {
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Create certificate (admin)', description: 'Creates a DRAFT certificate for a student. Must be approved then published before student can see it.' })
-  @ApiBody({ schema: { example: { studentId: 'student_cuid', type: 'TESTIMONIAL', title: 'Testimonial Certificate', body: 'This is to certify that...' } } })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBody({ type: CreateCertificateDto })
   @ApiResponse({ status: 201, description: 'Certificate created as DRAFT' })
-  create(@CurrentUser('id') adminId: string, @Body() data: any) { return this.svc.create(adminId, data); }
+  async create(
+    @CurrentUser('id') adminId: string, 
+    @Body() data: CreateCertificateDto,
+    @UploadedFile() file?: Express.Multer.File
+  ) { 
+    let pdfUrl = null;
+    if (file) {
+      const upload = await this.cloudinary.uploadFile(file, 'school-portal/certificates');
+      pdfUrl = upload.url;
+    }
+    return this.svc.create(adminId, { ...data, pdfUrl }); 
+  }
 
   @Put(':id/approve')
   @Roles('SUPER_ADMIN', 'ADMIN')

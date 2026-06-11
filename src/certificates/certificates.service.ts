@@ -8,7 +8,7 @@ export class CertificatesService {
 
   async create(adminId: string, data: any) {
     return this.prisma.certificate.create({
-      data: { studentId: data.studentId, type: data.type, title: data.title, body: data.body, createdBy: adminId, status: CertificateStatus.DRAFT },
+      data: { studentId: data.studentId, type: data.type, title: data.title, body: data.body, pdfUrl: data.pdfUrl, createdBy: adminId, status: CertificateStatus.DRAFT },
     });
   }
 
