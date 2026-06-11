@@ -52,7 +52,7 @@ export class HealthController {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       background: #0a0a1a;
       background-image:
@@ -61,12 +61,14 @@ export class HealthController {
         radial-gradient(ellipse at 50% 80%, rgba(244, 114, 182, 0.08) 0%, transparent 50%);
       color: #e2e8f0;
       padding: 2rem;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .container {
       max-width: 640px;
       width: 100%;
+      margin: auto;
       animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
