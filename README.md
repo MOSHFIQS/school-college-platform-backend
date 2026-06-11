@@ -15,14 +15,7 @@ npm install
 cp .env.example .env
 # Edit .env — set DATABASE_URL and JWT secrets at minimum
 
-# 3. Start PostgreSQL (Docker)
-docker run -d --name school_pg \
-  -e POSTGRES_DB=school_db \
-  -e POSTGRES_USER=school_user \
-  -e POSTGRES_PASSWORD=school_pass \
-  -p 5432:5432 postgres:16-alpine
-
-# 4. Generate Prisma client + migrate
+# 3. Make sure PostgreSQL is running on localhost:5432, then generate Prisma client + migrate
 npm run db:generate
 npm run db:migrate
 
@@ -40,38 +33,46 @@ npm run start:dev
 
 ## 🔑 Default Credentials (after seed)
 
-| Role | Login | Password | Notes |
-|------|-------|----------|-------|
-| Super Admin | `superadmin@school.edu.bd` | `SuperAdmin@123` | Full access |
-| Admin | `admin@school.edu.bd` | `Admin@123` | Academic management |
-| Teacher | `teacher@school.edu.bd` OR `EMP-001` | `Teacher@123` | Class 9A math teacher |
-| Student | `student@school.edu.bd` OR `STU-2025-0001` | `Student@123` | Class 9A, Roll 2025901 |
+| Role        | Login                                      | Password         | Notes                  |
+| ----------- | ------------------------------------------ | ---------------- | ---------------------- |
+| Super Admin | `superadmin@school.edu.bd`                 | `SuperAdmin@123` | Full access            |
+| Admin       | `admin@school.edu.bd`                      | `Admin@123`      | Academic management    |
+| Teacher     | `teacher@school.edu.bd` OR `EMP-001`       | `Teacher@123`    | Class 9A math teacher  |
+| Student     | `student@school.edu.bd` OR `STU-2025-0001` | `Student@123`    | Class 9A, Roll 2025901 |
 
 ---
 
 ## 🔐 Authentication Flow
 
 ### Step 1 — Login
+
 ```http
 POST /api/v1/auth/login
 { "username": "admin@school.edu.bd", "password": "Admin@123" }
 ```
+
 Returns `accessToken` (15 min) + sets `refreshToken` httpOnly cookie (7 days).
 
 ### Step 2 — Authorize in Swagger
+
 Click **Authorize 🔒** → enter `Bearer <accessToken>` under **bearerAuth**.
 
 ### First-Login Password Change
+
 When `mustChangePassword: true` in login response:
+
 ```http
 POST /api/v1/auth/change-password
 Authorization: Bearer <accessToken>
 { "currentPassword": "TempPass@123", "newPassword": "MyNewPass@456" }
 ```
+
 After this, full portal access is granted and new tokens are returned.
 
 ### Step 3 — Refresh Token
+
 The `refreshToken` cookie is sent automatically by browser. Call:
+
 ```http
 POST /api/v1/auth/refresh
 # Cookie: refreshToken=<value> (sent automatically)
@@ -109,7 +110,6 @@ backend/
 │   ├── schema.prisma       # Database schema
 │   └── seed.ts             # Initial data seeder
 ├── .env.example
-├── Dockerfile
 └── package.json
 ```
 
@@ -118,6 +118,7 @@ backend/
 ## 🗄️ Key Workflows
 
 ### Admission → Student Account
+
 ```
 Visitor submits form (POST /admissions)
         ↓ applicationNo returned
@@ -135,6 +136,7 @@ Student changes password (POST /auth/change-password)
 ```
 
 ### Mark Entry → Result Publication
+
 ```
 Teacher enters marks (POST /results/marks)     → status: DRAFT
         ↓
@@ -147,6 +149,7 @@ Public search  (GET /results/search?roll=&examId=)
 ```
 
 ### Certificate Lifecycle
+
 ```
 Admin creates  → DRAFT
 Admin approves → APPROVED
@@ -158,15 +161,15 @@ Admin revokes  → REVOKED    ← hidden from student
 
 ## 📊 Bangladesh Grading System (JSC/SSC/HSC)
 
-| Marks | Grade | GPA |
-|-------|-------|-----|
-| 80–100 | A+ | 5.00 |
-| 70–79  | A  | 4.00 |
-| 60–69  | A- | 3.50 |
-| 50–59  | B  | 3.00 |
-| 40–49  | C  | 2.00 |
-| 33–39  | D  | 1.00 |
-| 0–32   | F  | 0.00 |
+| Marks  | Grade | GPA  |
+| ------ | ----- | ---- |
+| 80–100 | A+    | 5.00 |
+| 70–79  | A     | 4.00 |
+| 60–69  | A-    | 3.50 |
+| 50–59  | B     | 3.00 |
+| 40–49  | C     | 2.00 |
+| 33–39  | D     | 1.00 |
+| 0–32   | F     | 0.00 |
 
 Auto-calculated on mark entry. See `GET /results/grade-scale`.
 
@@ -174,30 +177,17 @@ Auto-calculated on mark entry. See `GET /results/grade-scale`.
 
 ## 🏷️ Role Permissions Summary
 
-| Action | SUPER_ADMIN | ADMIN | TEACHER | STUDENT |
-|--------|:-----------:|:-----:|:-------:|:-------:|
-| Create Admin | ✅ | ❌ | ❌ | ❌ |
-| Manage Teachers | ✅ | ✅ | ❌ | ❌ |
-| Approve Admissions | ✅ | ✅ | ❌ | ❌ |
-| Take Attendance | ✅ | ✅ | ✅ | ❌ |
-| Enter Marks | ✅ | ✅ | ✅ | ❌ |
-| Publish Results | ✅ | ✅ | ❌ | ❌ |
-| View Own Results | ✅ | ✅ | ✅ | ✅ |
-| Create Certificates | ✅ | ✅ | ❌ | ❌ |
-| View Audit Logs | ✅ | ❌ | ❌ | ❌ |
-
----
-
-## 🐳 Docker Deployment
-
-```bash
-# Start everything
-docker-compose up -d --build
-
-# Run migrations + seed
-docker-compose exec backend npx prisma migrate deploy
-docker-compose exec backend npm run db:seed
-```
+| Action              | SUPER_ADMIN | ADMIN | TEACHER | STUDENT |
+| ------------------- | :---------: | :---: | :-----: | :-----: |
+| Create Admin        |     ✅      |  ❌   |   ❌    |   ❌    |
+| Manage Teachers     |     ✅      |  ✅   |   ❌    |   ❌    |
+| Approve Admissions  |     ✅      |  ✅   |   ❌    |   ❌    |
+| Take Attendance     |     ✅      |  ✅   |   ✅    |   ❌    |
+| Enter Marks         |     ✅      |  ✅   |   ✅    |   ❌    |
+| Publish Results     |     ✅      |  ✅   |   ❌    |   ❌    |
+| View Own Results    |     ✅      |  ✅   |   ✅    |   ✅    |
+| Create Certificates |     ✅      |  ✅   |   ❌    |   ❌    |
+| View Audit Logs     |     ✅      |  ❌   |   ❌    |   ❌    |
 
 ---
 
